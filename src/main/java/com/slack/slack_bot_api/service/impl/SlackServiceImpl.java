@@ -2,11 +2,17 @@ package com.slack.slack_bot_api.service.impl;
 
 import com.slack.api.Slack;
 import com.slack.api.methods.SlackApiException;
-import com.slack.api.model.block.LayoutBlock;
+import com.slack.api.methods.request.chat.ChatPostMessageRequest;
+import com.slack.api.methods.request.files.FilesUploadV2Request;
+import com.slack.api.methods.response.files.FilesUploadV2Response;
+import com.slack.api.model.File;
+import com.slack.api.model.block.Blocks;
+import com.slack.api.model.block.composition.BlockCompositions;
 import com.slack.slack_bot_api.service.SlackService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
@@ -24,32 +30,40 @@ public class SlackServiceImpl implements SlackService {
     @Value("${slack.default-channel}")
     private String channel;
 
-    @Override
-    public void sendMessage(String text) {
-        try {
-            slack.methods(botToken).chatPostMessage(req -> req
-                    .channel(channel)
-                    .text(text)
-                    .mrkdwn(true));
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-            throw new RuntimeException(e);
 
-        }
+    @Override
+    public String sendBlockMessage(String text) throws SlackApiException, IOException {
+        var message = ChatPostMessageRequest
+                .builder()
+                .channel(channel)
+                .blocks(List.of(
+                        Blocks.section(section -> section.text(
+                                BlockCompositions.markdownText(text)
+                        ))
+                ))
+                .build();
+        var response = slack.methods(botToken).chatPostMessage(message);
+        return response.isOk() ? "Message Sent" : "Error: " +response.getMessage();
     }
 
     @Override
-    public void sendBlockMessage(List<LayoutBlock> blocks, String fallbackText) {
-        try {
-            slack.methods(botToken).chatPostMessage(req -> req
-                    .channel(channel)
-                    .text(fallbackText == null ? "Message" : fallbackText)
-                    .blocks(blocks)
-            );
-        } catch (IOException | SlackApiException e) {
-            System.out.println(e.getMessage());
-            throw new RuntimeException(e);
+    public String uploadFile(MultipartFile file, String comment) throws IOException, SlackApiException {
+
+        var request = FilesUploadV2Request
+                .builder()
+                .channel(channel)
+                .filename(file.getOriginalFilename())
+                .initialComment(comment)
+                .fileData(file.getInputStream().readAllBytes())
+                .build();
+        var response = slack.methods(botToken).filesUploadV2(request);
+        if(response.isOk()){
+            File uploaded = response.getFiles().get(0);
+            return "OK: " + uploaded.getName() + " → " + uploaded.getPermalink();
         }
+
+        throw new RuntimeException("Slack upload error: " + response.getError());
     }
+
 
 }
