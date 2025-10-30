@@ -36,6 +36,17 @@ public class SlackController {
         return slackService.uploadFile(file, comment);
     }
 
+    @PutMapping(value = "/update")
+    public String updateMessage(
+            @RequestParam String ts,
+            @RequestParam String newText) throws SlackApiException, IOException {
+        return slackService.updateMessage(ts, newText);
+    }
+
+    @DeleteMapping("/delete")
+    public String deleteMessage(@RequestParam String ts) throws SlackApiException, IOException {
+        return slackService.deleteMessage(ts);
+    }
 
 
 

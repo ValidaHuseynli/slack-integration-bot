@@ -4,7 +4,6 @@ import com.slack.api.Slack;
 import com.slack.api.methods.SlackApiException;
 import com.slack.api.methods.request.chat.ChatPostMessageRequest;
 import com.slack.api.methods.request.files.FilesUploadV2Request;
-import com.slack.api.methods.response.files.FilesUploadV2Response;
 import com.slack.api.model.File;
 import com.slack.api.model.block.Blocks;
 import com.slack.api.model.block.composition.BlockCompositions;
@@ -43,7 +42,7 @@ public class SlackServiceImpl implements SlackService {
                 ))
                 .build();
         var response = slack.methods(botToken).chatPostMessage(message);
-        return response.isOk() ? "Message Sent" : "Error: " +response.getMessage();
+        return response.isOk() ? "Message Sent" : "Error: " + response.getMessage();
     }
 
     @Override
@@ -57,12 +56,47 @@ public class SlackServiceImpl implements SlackService {
                 .fileData(file.getInputStream().readAllBytes())
                 .build();
         var response = slack.methods(botToken).filesUploadV2(request);
-        if(response.isOk()){
+        if (response.isOk()) {
             File uploaded = response.getFiles().get(0);
             return "OK: " + uploaded.getName() + " → " + uploaded.getPermalink();
         }
 
         throw new RuntimeException("Slack upload error: " + response.getError());
+    }
+
+    @Override
+    public String updateMessage(String ts, String newText) throws SlackApiException, IOException {
+
+
+        var response = slack.methods(botToken).chatUpdate(req ->
+                req.channel(channel)
+                        .ts(ts)
+                        .text(newText)
+        );
+
+        return response.isOk() ? "Message Edited" : "Error: " + response.getError();
+    }
+
+    @Override
+    public String deleteMessage(String ts) throws SlackApiException, IOException {
+        var response = slack.methods(botToken)
+                .chatDelete(req ->
+                        req.channel(channel)
+                                .ts(ts)
+                );
+        return response.isOk() ? "Successfully Deleted" : "Something went wrong" + response.getError();
+    }
+
+    @Override
+    public void sendStartupNotification() throws SlackApiException, IOException {
+        var response = slack.methods(botToken)
+                .chatPostMessage(req ->
+                        req.channel(channel)
+                                .text("Service started successfully")
+                );
+        if(!response.isOk())
+            System.out.println(response.getError());
+
     }
 
 
